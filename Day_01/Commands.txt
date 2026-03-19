@@ -1,0 +1,5 @@
+BUILD (full mode):
+    docker build -t yaroslavdomb/app:0.2 -f ./Dockerfile .
+
+RUN:
+    docker run -d --name try_2 --rm -p 3030:3030 yaroslavdomb/app:0.2

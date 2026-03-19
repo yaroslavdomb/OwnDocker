@@ -3,6 +3,8 @@ ARG APP_VERSION=20
 ARG APP_NAME=node
 FROM $APP_NAME:$APP_VERSION-alpine
 
+RUN apk add --no-cache curl
+
 #Here your glorious come 
 LABEL author="yaroslavdomb" version="1.0" description="My first Node.js app"
 
