@@ -1,0 +1,48 @@
+DAY  | TOPIC                 | WHAT to be learned
+-----|-----------------------|--------------------------------------------------
+1    | Dockerfile - basic    | FROM, WORKDIR, RUN, COPY, CMD, EXPOSE, ENTRYPOINT, multi-stage build
+								ARG, ENV, LABEL, USER, VOLUME, ADD, HEALTHCHECK, ONBUILD, STOPSIGNAL, SHELL
+2    | Networks              | bridge, host, none, создание сетей, связь контейнеров
+3    | Volumes               | bind mount, named volume, tmpfs, бэкап данных
+4    | docker-compose        | depends_on, env_file, networks, volumes в compose
+5    | Docker Registry       | push/pull, private registry, тегирование образов
+6    | Оптимизация           | слои, кэш, размер образа, .dockerignore
+7    | Практика              | подними стек: nginx + app + postgres через compose
+8    | Inventory             | ini/yaml форматы, группы, переменные хостов
+9    | Playbooks             | tasks, handlers, notify, tags
+10   | Модули                | apt, copy, template, service, file, user
+11   | Variables             | vars, group_vars, host_vars, register, debug
+12   | Templates             | Jinja2, циклы, условия в шаблонах
+13   | Roles                 | структура роли, ansible-galaxy, зависимости
+14   | Практика              | роль которая ставит nginx с конфигом через template
+15   | Vault                 | шифрование, ansible-vault create/edit/encrypt
+16   | Conditionals          | when, failed_when, changed_when
+17   | Loops                 | loop, with_items, with_dict
+18   | Error handling        | ignore_errors, block/rescue/always
+19   | Dynamic inventory     | скрипты, плагины, AWS/Docker inventory
+20   | Оптимизация           | async, poll, serial, forks
+21   | Практика              | деплой Docker контейнера через Ansible
+22   | Pipeline syntax       | stages, steps, agent, environment
+23   | Credentials           | хранение секретов, withCredentials
+24   | when / post           | условия, always/failure/success
+25   | parallel              | параллельные stages
+26   | Parameters            | input, параметризованные сборки
+27   | GitHub integration    | webhook, triggers, SCM polling
+28   | Практика              | pipeline с параметрами и уведомлением на email
+29   | Shared Libraries      | структура, vars, src, resources
+30   | Docker в Jenkins      | агент в контейнере, docker.build, docker.push
+31   | Artifacts             | archiveArtifacts, stash/unstash
+32   | Multibranch pipeline  | автообнаружение веток, PR builds
+33   | Blue Ocean            | визуализация, настройка
+34   | Мониторинг            | логи, метрики, плагины
+35   | Практика              | билд Docker образа и пуш в registry
+36   | Архитектура           | проектируешь полный CI/CD pipeline
+37   | Jenkins + Git         | триггер на push, сборка образа
+38   | Jenkins + Docker      | билд, тег, пуш в registry
+39   | Jenkins + Ansible     | Jenkins запускает Ansible playbook
+40   | Ansible + Docker      | Ansible деплоит контейнер на сервер
+41   | Полный цикл           | push в git -> Jenkins -> Docker build -> Ansible deploy
+42   | Финальный проект      | всё вместе, боевой pipeline
+
+
+Docker Swarm
