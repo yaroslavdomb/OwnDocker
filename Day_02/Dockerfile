@@ -9,6 +9,10 @@ RUN npm install
 FROM dependencies AS testing
 COPY . .
 RUN npm test
+# silent arg will skip name of script and command itself
+# > day_02@1.0.0 test
+# > echo My first test
+CMD ["npm", "test", "--silent"]
 
 ARG VERSION=20
 ARG TAG=alpine

@@ -1,3 +1,18 @@
 CREATE NODE ENV:
     npm init -y
     npm install express
+
+BUILD (I'm in myOwn):
+    from myOwn folder:
+        docker build -t yaroslavdomb/day2:0.1 -f .\Day_02\Dockerfile .\Day_02\
+    from Day2 folder:
+        docker build -t yaroslavdomb/day2:0.1 .
+
+TESTING:
+    to see in browser:
+        docker run -d --rm --name d2 -p 8075:4444 -e PORT=4444 yaroslavdomb/day2:0.1 = full start
+    to see tests:
+        1) Build image that will finished his work on testing stage
+            docker build --target testing -t day2:tests .
+        2) Run tests
+            docker run day2:tests  
