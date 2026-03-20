@@ -1,3 +1,4 @@
+//*********************************__MULTI-STAGE__DOCKER__*************************************************
 CREATE NODE ENV:
     npm init -y
     npm install express
@@ -15,4 +16,94 @@ TESTING:
         1) Build image that will finished his work on testing stage
             docker build --target testing -t day2:tests .
         2) Run tests
-            docker run day2:tests  
+            docker run day2:tests 
+
+
+//*********************************__NETWORKS__*************************************************
+
+CREATE NET:
+    docker network create --driver bridge mynet
+
+RUN POSTGRESS
+    docker run -d --name pg_db -e POSTGRES_PASSWORD=pass123 --network mynet postgres 
+
+RUN adminer (UI for POSTGRESQL)
+    docker run -d --name pg_ui -p 8080:8080 --network mynet adminer 
+
+TESTING:
+    Open browser on localhost:8080
+    Fill data as following:
+        System — PostgreSQL
+        Server — pg_db
+        User — postgres
+        Pass — pass123
+        BD — left empty
+
+
+mcvlan - host can't connect stright to his containers 
+
+
+//************************__TASKS__**************
+
+TASK-1
+    T1-1)Create 2 containers from alpine with default network. 
+    Try to connect one from other by container name && by IP 
+    (could be done using docker inspect | grep IPAddress)
+    T1-2)Create network, connect both containers to it and then
+    try to reach each other by names and IPs
+
+SOLUTION
+    1) docker run -itd --name c1 --rm alpine
+    2) docker inspect c1 | grep IPAddress
+    3) docker run -itd --name c2 --rm alpine
+    4.1) docker exec -it c2 ping <output of(2)> //expected success - strightforward using of IP
+    4.2) docker exec -it c2 ping c1 //expected fail - no DNS activated
+
+    5) docker network create --driver=bridge mynet
+    6) docker network connect mynet c1
+    7) docker network connect mynet c2
+    8) 4.1 && 4.2 both will be OK
+
+
+TASK-2
+    Start container with driver none. Go inside and check with 
+        ip a 
+    witch interfaces are reachable. Try to ping 8.8.8.8
+
+SOLUTION
+    docker run -itd -d --name c1 --network none alpine
+    docker exec -it c1 sh 
+    ip a
+    ping 8.8.8.8
+
+
+TASK-3
+    Run an nginx container on your Ubuntu VM using the host driver — without -p. 
+    Open a browser and go to the VM's IP on port 80. 
+    Then run a second nginx container with the same driver and observe what happens — explain why.
+
+SOLUTION:
+    1) Open port forwarding on your VM machine (set 8080 for Host and 80 for Guest IP)
+    2) Create in folder /home/jarik15/Documents/Docker/Day_02 primite index.html:
+        echo '<h1>Hello from nginx!</h1>' > /home/jarik15/Documents/Docker/Day_02/index.html
+    3) On your VM run command
+        docker run --name mynginx --network host -v /home/jarik15/Documents/Docker/Day_02:/usr/share/nginx/html:ro -d nginx
+    4) On Win open browser and go to localhost:8080. You should see "Hello from nginx!"
+    5) Try to start second container 
+    6) execute after it 
+        docker ps 
+        - you'll see that only one is up - the first one.
+    7) Open logs:
+        docker logs mynginx2
+        - you'll see the error address already in use - the port 80 (default by nginx) already used by container#1,
+        so second container just can't start. Option -p in run command will be totally ignored for --network host. 
+
+
+Задание 4 — две изолированные сети
+Создай две сети: frontend и backend. Подними:
+
+alpine с именем client в сети frontend
+alpine с именем api в обеих сетях (frontend и backend)
+alpine с именем db в сети backend
+
+Проверь: client видит api? client видит db? db видит api? Нарисуй себе схему до того как проверять.

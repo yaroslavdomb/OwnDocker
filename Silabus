@@ -1,7 +1,6 @@
 DAY  | TOPIC                 | WHAT to be learned
 -----|-----------------------|--------------------------------------------------
-1    | Dockerfile - basic    | FROM, WORKDIR, RUN, COPY, CMD, EXPOSE, ENTRYPOINT, multi-stage build
-								ARG, ENV, LABEL, USER, VOLUME, ADD, HEALTHCHECK, ONBUILD, STOPSIGNAL, SHELL
+1    | Dockerfile - basic    | FROM, WORKDIR, RUN, COPY, CMD, EXPOSE, ENTRYPOINT, multi-stage build, ARG, ENV, LABEL, USER, VOLUME, ADD, HEALTHCHECK, ONBUILD, STOPSIGNAL, SHELL
 2    | Networks              | bridge, host, none, создание сетей, связь контейнеров
 3    | Volumes               | bind mount, named volume, tmpfs, бэкап данных
 4    | docker-compose        | depends_on, env_file, networks, volumes в compose
