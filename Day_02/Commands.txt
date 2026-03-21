@@ -42,6 +42,14 @@ TESTING:
 
 mcvlan - host can't connect stright to his containers 
 
+Synonims:
+    --network = --net
+
+Options:
+    --network mynet --ip 172.20.0.5 = set specific IPv4 for this container in docker net
+    --network mynet --ip6 <IP v6> = set specific IPv6 for this container in docker net
+    --network mynet --network-alias db = add alias (db) for container inside the net.
+
 
 //************************__TASKS__**************
 
