@@ -1,0 +1,37 @@
+services:
+  app:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+      args:                               
+        APP_VERSION: ${APP_VERSION}       
+        BUILD_ENV: ${BUILD_ENV}           
+        BASE_TAG: ${BASE_TAG}             
+        SECRET_KEY: ${SECRET_KEY:?SECRET_KEY must be set}   # will use value of SECRET_KEY, otherwise will fail with msg = "SECRET_KEY must be set"
+    ports:
+      - "${APP_PORT}:8000"
+    environment:
+      DB_HOST: db
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      APP_ENV: ${BUILD_ENV:-development}      # :-development = syntax of default value  
+    env_file:                                 # source of env variables
+      - .env
+
+  db:
+    image: postgres:${POSTGRES_VERSION}
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - backend
+
+volumes:
+  pgdata:
+
+networks:
+  backend:
+    ipam:
+      config:
+        - subnet: ${SUBNET}
+          gateway: ${SUBNET%0/16}1        # берём подсеть и делаем из неё gateway
