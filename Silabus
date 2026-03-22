@@ -2,53 +2,55 @@ DONE| DAY | TOPIC                | WHAT TO BE LEARNED
 ----|-----|----------------------|--------------------------------------------------
             ===== DOCKER ===== 
  1  |  1  | Dockerfile - basics  | All available Dockerfile key words, multi-stage build
- 1  |  2  | Networks             | bridge, host, none, network creation, container communication, ipvlan vs macvlan
+ 1  |  2  | Networks             | types of networks, creation, container communication, ipvlan vs macvlan
  1  |  3  | Volumes              | bind mount, named volume, tmpfs, data backup
-    |  4  | Docker Compose       | depends_on, env_file, networks, volumes in compose
-    |  5  | Docker Registry      | push/pull, private registry, image tagging
-    |  6  | Optimization         | layers, cache, image size, .dockerignore
-    |  7  | Permissions          | USER in Dockerfile, --user flag, docker.sock, permissions for DinD, rootless Docker
-    |  8  | Practice             | run a stack: nginx + app + postgres via compose
-    |  9  | Swarm - Basics       | nodes, managers, workers, docker swarm init
-    | 10  | Swarm - Services     | docker service create, replicas, scaling
-    | 11  | Swarm - Networking   | overlay networks, routing mesh
-    | 12  | Swarm - Stack Deploy | docker stack deploy, compose in swarm
-    | 13  | Swarm - Practice     | deploy multi-service app in swarm cluster
+ 1  |  4  | Variables            | ARG, ENV, .env file, environment substitution in compose
+ 1  |  5  | Docker Compose       | Full options example explanation and research
+    |  6  | Docker Registry      | push/pull, private registry, image tagging
+    |  7  | Optimization         | layers, cache, image size, .dockerignore
+    |  8  | Permissions          | USER in Dockerfile, --user flag, docker.sock, permissions for DinD, rootless Docker
+    |  9  | Practice             | run a stack: nginx + app + postgres via compose
+    | 10  | Swarm - Basics       | nodes, managers, workers, docker swarm init
+    | 11  | Swarm - Services     | docker service create, replicas, scaling
+    | 12  | Swarm - Networking   | overlay networks, routing mesh
+    | 13  | Swarm - Stack Deploy | docker stack deploy, compose in swarm
+    | 14  | Swarm - Practice     | deploy multi-service app in swarm cluster
             ===== ANSIBLE =====  
-    | 14  | Inventory            | ini/yaml formats, groups, host variables
-    | 15  | Playbooks            | tasks, handlers, notify, tags
-    | 16  | Modules              | apt, copy, template, service, file, user
-    | 17  | Variables            | vars, group_vars, host_vars, register, debug
-    | 18  | Templates            | Jinja2, loops, conditionals in templates
-    | 19  | Roles                | role structure, ansible-galaxy, dependencies
-    | 20  | Practice             | role that installs nginx with config via template
-    | 21  | Vault                | encryption, ansible-vault create/edit/encrypt
-    | 22  | Conditionals         | when, failed_when, changed_when
-    | 23  | Loops                | loop, with_items, with_dict
-    | 24  | Error Handling       | ignore_errors, block/rescue/always
-    | 25  | Dynamic Inventory    | scripts, plugins, AWS/Docker inventory
-    | 26  | Optimization         | async, poll, serial, forks
-    | 27  | Practice             | deploy Docker container via Ansible
+    | 15  | Inventory            | ini/yaml formats, groups, host variables
+    | 16  | Playbooks            | tasks, handlers, notify, tags
+    | 17  | Modules              | apt, copy, template, service, file, user
+    | 18  | Variables            | vars, group_vars, host_vars, register, debug
+    | 19  | Jinja2               | syntax, variables, filters, loops, conditionals in templates
+    | 20  | Templates            | template module, using Jinja2 in real configs
+    | 21  | Roles                | role structure, ansible-galaxy, dependencies
+    | 22  | Practice             | role that installs nginx with config via template
+    | 23  | Vault                | encryption, ansible-vault create/edit/encrypt
+    | 24  | Conditionals         | when, failed_when, changed_when
+    | 25  | Loops                | loop, with_items, with_dict
+    | 26  | Error Handling       | ignore_errors, block/rescue/always
+    | 27  | Dynamic Inventory    | scripts, plugins, AWS/Docker inventory
+    | 28  | Optimization         | async, poll, serial, forks
+    | 29  | Practice             | deploy Docker container via Ansible
             ===== JENKINS ====== 
-    | 28  | Pipeline Syntax      | stages, steps, agent, environment
-    | 29  | Credentials          | secrets storage, withCredentials
-    | 30  | when / post          | conditions, always/failure/success
-    | 31  | Parallel             | parallel stages
-    | 32  | Parameters           | input, parameterized builds
-    | 33  | GitHub Integration   | webhook, triggers, SCM polling
-    | 34  | Practice             | pipeline with parameters and email notification
-    | 35  | Shared Libraries     | structure, vars, src, resources
-    | 36  | Docker in Jenkins    | agent in container, docker.build, docker.push
-    | 37  | Artifacts            | archiveArtifacts, stash/unstash
-    | 38  | Multibranch Pipeline | branch auto-discovery, PR builds
-    | 39  | Blue Ocean           | visualization, configuration
-    | 40  | Monitoring           | logs, metrics, plugins
-    | 41  | Practice             | build Docker image and push to registry
+    | 30  | Pipeline Syntax      | stages, steps, agent, environment
+    | 31  | Credentials          | secrets storage, withCredentials
+    | 32  | when / post          | conditions, always/failure/success
+    | 33  | Parallel             | parallel stages
+    | 34  | Parameters           | input, parameterized builds
+    | 35  | GitHub Integration   | webhook, triggers, SCM polling
+    | 36  | Practice             | pipeline with parameters and email notification
+    | 37  | Shared Libraries     | structure, vars, src, resources
+    | 38  | Docker in Jenkins    | agent in container, docker.build, docker.push
+    | 39  | Artifacts            | archiveArtifacts, stash/unstash
+    | 40  | Multibranch Pipeline | branch auto-discovery, PR builds
+    | 41  | Blue Ocean           | visualization, configuration
+    | 42  | Monitoring           | logs, metrics, plugins
+    | 43  | Practice             | build Docker image and push to registry
              === INTEGRATION ===  
-    | 42  | Architecture         | design a full CI/CD pipeline
-    | 43  | Jenkins + Git        | push trigger, image build
-    | 44  | Jenkins + Docker     | build, tag, push to registry
-    | 45  | Jenkins + Ansible    | Jenkins runs Ansible playbook
-    | 46  | Ansible + Docker     | Ansible deploys container to server
-    | 47  | Full Cycle           | push to git -> Jenkins -> Docker build -> Ansible deploy
-    | 48  | Final Project        | everything together, production pipeline
+    | 44  | Architecture         | design a full CI/CD pipeline
+    | 45  | Jenkins + Git        | push trigger, image build
+    | 46  | Jenkins + Docker     | build, tag, push to registry
+    | 47  | Jenkins + Ansible    | Jenkins runs Ansible playbook
+    | 48  | Ansible + Docker     | Ansible deploys container to server
+    | 49  | Full Cycle           | push to git -> Jenkins -> Docker build -> Ansible deploy
+    | 50  | Final Project        | everything together, production pipeline
