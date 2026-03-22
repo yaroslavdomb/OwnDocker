@@ -3,7 +3,7 @@ DONE| DAY | TOPIC                | WHAT TO BE LEARNED
             ===== DOCKER ===== 
  1  |  1  | Dockerfile - basics  | All available Dockerfile key words, multi-stage build
  1  |  2  | Networks             | bridge, host, none, network creation, container communication, ipvlan vs macvlan
-    |  3  | Volumes              | bind mount, named volume, tmpfs, data backup
+ 1  |  3  | Volumes              | bind mount, named volume, tmpfs, data backup
     |  4  | Docker Compose       | depends_on, env_file, networks, volumes in compose
     |  5  | Docker Registry      | push/pull, private registry, image tagging
     |  6  | Optimization         | layers, cache, image size, .dockerignore
