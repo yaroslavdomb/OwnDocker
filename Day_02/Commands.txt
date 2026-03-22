@@ -50,6 +50,14 @@ Options:
     --network mynet --ip6 <IP v6> = set specific IPv6 for this container in docker net
     --network mynet --network-alias db = add alias (db) for container inside the net.
 
+PORT forwarding:
+    -p 204.89.56.23:5433:177.17.0.24:5432 = forwarding specific IP of HOST to specific IP of CONTAINER
+        204.89.56.23 = outer(HOST) IP 
+        5433 = outer(HOST) port
+        177.17.0.24 = inner (container) IP
+        5432 = outer(container) port
+
+    If IP not mentioned - it will listen on 0.0.0.0? means any IP is OK
 
 //************************__TASKS__**************
 
