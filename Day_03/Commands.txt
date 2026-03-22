@@ -1,0 +1,73 @@
+TMPFS    
+    docker run --tmpfs /secrets:rw,noexec,nosuid,size=50k --tmpfs /run:rw,noexec,nosuid,size=100m myapp 
+
+MOUNT
+
+    It's the same commands:
+        docker run --mount type=bind,source=/host/path,target=/container/path,readonly
+        docker run -v /host/path:/container/path:ro
+    Has 3 types:
+        type=bind/volume/tmpfs
+    For example:
+        --mount type=bind,source=/home/jarik15/myapp,target=/app,readonly
+        --mount type=volume,source=pgdata,target=/var/lib/postgresql/data
+        --mount type=tmpfs,target=/run,tmpfs-size=100m,tmpfs-mode=1777
+
+    No-folder behavior:
+        -v will create folder that does not exist on host 
+        --mount will throw an error
+
+    Additional options for mount:
+        - bind-propagation = for new internal MOUNTED (only!!!) points
+        - volume-nocopy = behavior for copy files FROM container TO host on connection.
+
+    Synonims:
+        target = destination = dst
+        ource = src
+
+COMMAND EXAMPLE
+    docker volume inspect pgdata
+
+    [
+        {
+            "CreatedAt": "2026-03-21T10:00:00Z",
+            "Driver": "local",
+            "Labels": {
+                "env": "prod",
+                "app": "postgres"
+            },
+            "Mountpoint": "/var/lib/docker/volumes/pgdata/_data",
+            "Name": "pgdata",
+            "Options": {},
+            "Scope": "local"
+        }
+    ]
+
+BEST PRACTIES:
+    1) Some volumes can be used for first initialization (in DB for example)
+    2) Volumes can be used to share databetween containers
+    3) DO NOT share volume to container root (-v data:/ )
+    4) Use :ro everywhere you can
+    5) Use --label to explain what this volume is
+    6) Use volume to keep config files - 
+        then any change will need only container restart and NOT the image rebuild
+    7) Check volume credentials, use chown if need
+    8) DO NOT keep secrets in volumes
+
+//******************__TASKS__********************
+1) Create a named volume pgdata
+    docker volume create pgdata
+
+2) Run a postgres container with this volume
+    docker run --name pg_db -v pgdata:/var/lib/postgresql/data postgres
+
+3) Create a database and a table with some data inside
+
+4) Delete the container
+    docker container rm -f pg_db
+
+5) Run a new postgres container with the same volume
+    docker run --name pg_db2 -v pgdata:/var/lib/postgresql/data postgres
+
+Verify that the data is still there
+
