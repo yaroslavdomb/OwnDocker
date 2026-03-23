@@ -4,3 +4,42 @@
 //********************__BEST_PRACTIES__******************************
 
 //*************************__TASKS__*********************************
+Task-1 — ARG vs ENV
+    Create a Dockerfile for Ngnix where ARG VERSION is passed at build time and ENV VERSION takes its value from ARG.
+    Build the image with --build-arg VERSION=2.0. Enter the container and check printenv VERSION. 
+    Then build without --build-arg and check what happens.
+Solution-1
+    Dockerfile = see t1.dockerfile
+
+    docker build --build-arg VERSION=2.0 -t yaroslavdomb/day04:t1 -f .\t1.dockerfile . 
+    docker run -d --name d4t1 yaroslavdomb/day04:t1
+    docker exec -it d4t1 printenv VERSION
+
+
+Task-2 - ARG before and after FROM
+    Create Dockerfile for Postgres with ARG BASE_TAG before FROM and use it in FROM. 
+    Then try re-use it after FROM without re-declaration.
+Solution-2
+    Dockerfile = see t2.dockerfile
+
+    docker build -t yaroslavdomb/day04:t2 -f .\t2.dockerfile .
+    docker run -d --rm --name d4t2 -e POSTGRES_PASSWORD=pass01! yaroslavdomb/day04:t2
+
+
+Task-3 - multi-stage and ARG
+    Create double-stage Dockerfile for postgres and adminer. Declare ENV APP_VERSION in first stage. 
+    Try to use it in second satge without re-declaration (will be empty as it's not transferred between stages).
+Solution-3
+    Dockerfile = see t3.dockerfile
+
+    docker build --build-arg APP1=postgres --build-arg TAG1=18 --build-arg APP2=adminer --build-arg TAG2=latest -t yaroslavdomb/day04:t3 -f .\t3.dockerfile .
+
+Task-4 - priorities
+    Set variable APP_ENV in Dockerfile (based on ubuntu) via ENV, then override it via docker run -e APP_ENV=override. 
+    Check inside the container which value wins.
+Solution-4
+    Dockerfile = see t4.dockerfile
+
+    #warning expected as docker don't know TAG value
+    docker build --build-arg TAG=latest -t yaroslavdomb/day04:t4 -f .\t4.dockerfile .
+    docker run -it --rm --name d4t4 -e APP_ENV="outer env" yaroslavdomb/day04:t4 
