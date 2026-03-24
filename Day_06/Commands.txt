@@ -1,0 +1,138 @@
+0) Once you push into some registry if it's not dockerhub, the image __MUST__ include the storage address like
+        localhost:5050/yaroslavdomb/image:version
+    This is because command docker push will take only the image name(and it should already has registry address) and then parse it inside. 
+
+1) Before sending layer to registry Docker will check his build hash. 
+    In case it's already exist in Docker the layer will not be pushed again.
+
+2) Local registry is working on HTTP only, while Docker expect registry with HTTPS only.
+    There is 2 way to overcome it:
+    - register local HTTP as insecure but allowed
+    - 
+
+    To register on Mac/Win you need to add into Docker Desktop -> Settings -> Docker Engine 
+        {
+            "insecure-registries": ["localhost:5000"]
+        }
+    For Linux need to add the same into /etc/docker/daemon.json
+
+3) Image with couple of tags will remain until the last tag will not be removed.
+
+4) Max tag length = 128. Cnnot include @ and :
+
+
+
+//**************__ANTI-PATTERNS__*****************
+
+1) Use with "latest" - you don't know behavior of the image/container
+    docker pull yaroslavdomb/myapp:latest
+
+2) Overwrite the version - you can breack currently working image/container
+    docker tag myapp:2.0 yaroslavdomb/myapp:1.0
+    docker push yaroslavdomb/myapp:1.0 
+
+3) Push having no version
+    docker push yaroslavdomb/myapp
+
+4) Push having secrets in ENV/ARG inside the dockerfile
+
+
+//**************__BEST_PRACTIES__*****************
+1) Use & push 2 versions: with version as number and version as "latest"
+    It will push only ones the file, but then you can be sure even you missed 
+    the version, the latest will point on proper file
+
+2) Use didgest
+
+
+//************************ __ TASKS __ *******************
+Task-1 (dockerhub)
+    Create Dockerfile based on alpine: The task for Docker is to create log file and provide there data from ENV ENV_DATA= "day_06". Create 2 tags for it: yaroslavdomb/day06:1.0 and yaroslavdomb/day06:latest. Run each one and validate that the file created. Push image to the dockerhub, remove locale image, download from dockerhub, run and validate the same file recreated.
+Solution-1
+    Dockerfile = see t1.dockerfile
+
+    docker build --build-arg VER=3.23.3 -t yaroslavdomb/d06:t1_1.0 -f .\t1.dockerfile .
+    docker tag yaroslavdomb/d06:t1_1.0 yaroslavdomb/d06:t1_latest
+    docker run --rm --name d6t1_la yaroslavdomb/d06:t1_latest cat log.log
+    docker run --rm --name d6t1_10 yaroslavdomb/d06:t1_1.0 cat log.log 
+    docker push yaroslavdomb/d06:t1_1.0 
+    docker push yaroslavdomb/d06:t1_latest
+    docker image rm  yaroslavdomb/d06:t1_1.0 yaroslavdomb/d06:t1_latest
+    docker pull yaroslavdomb/d06:t1_1.0 
+    docker pull yaroslavdomb/d06:t1_latest
+    docker run --rm --name d6t1_la yaroslavdomb/d06:t1_latest cat log.log
+    docker run --rm --name d6t1_10 yaroslavdomb/d06:t1_1.0 cat log.log 
+
+
+
+Task-2 (local repository)
+    Start local private registry ("my_registry") on port 5050. Use volume /my/registry/data (check hub.docker.com for the correct internal data path). Config daemon.json to work with HTTP on localhost:5050. Build image from alpine and tag it as yaroslavdomb/day06:t2. Push it into the registry with numbered tag. Test existance of it with command "curl http://localhost:5050/v2/_catalog" (for Win "curl.exe http://localhost:5050/v2/_catalog").
+
+Solution-2
+    1) Dockerfile = see t2.dockerfile
+    2) According to your OS push inside the file {"insecure-registries": ["localhost:5050"]}
+    3) Start registry
+        docker run --name my_registry --rm -v /my/registry/data:/var/lib/registry -p 5050:5000 registry:3
+    4) Create image:
+        docker build --build-arg VER=3.23.3 -t yaroslavdomb/day06:t2 -f .\t2.dockerfile .
+    5) Push image into local registry
+        docker tag yaroslavdomb/day06:t2 localhost:5050/yaroslavdomb/day06:1.0
+        docker push localhost:5050/yaroslavdomb/day06:1.0
+    6) Check repo:
+        curl.exe http://localhost:5050/v2/_catalog
+        #got {"repositories":["yaroslavdomb/day06"]}
+    7) To get tags:
+        curl.exe http://localhost:5050/v2/yaroslavdomb/day06/tags/list
+
+
+
+Task-3 (Tagging patterns)
+    Create image from alpine, 3.23.3, named it as yaroslavdomb/day06:t3. Create for it 4 tags:
+        with tag = 1.0.0 / abc1234 / prod / 2024-03-23
+    Push all of them into local registry and into Docker Hub. Validate all tags has the same IMAGE ID.
+Solution-3
+    1) Dockerfile = see t3.dockerfile
+    2) Create image:
+        docker build -t yaroslavdomb/day06:t3 -f .\t3.dockerfile .
+    3) Create tags:
+        docker tag yaroslavdomb/day06:t3 localhost:5050/yaroslavdomb/day06:1.0.0
+        docker tag yaroslavdomb/day06:t3 localhost:5050/yaroslavdomb/day06:abc1234
+        docker tag yaroslavdomb/day06:t3 localhost:5050/yaroslavdomb/day06:prod
+        docker tag yaroslavdomb/day06:t3 localhost:5050/yaroslavdomb/day06:2024-03-23
+
+        docker tag yaroslavdomb/day06:t3 yaroslavdomb/day06:1.0.0
+        docker tag yaroslavdomb/day06:t3 yaroslavdomb/day06:abc1234
+        docker tag yaroslavdomb/day06:t3 yaroslavdomb/day06:prod
+        docker tag yaroslavdomb/day06:t3 yaroslavdomb/day06:2024-03-23
+    4) Pushing:
+        docker push localhost:5050/yaroslavdomb/day06:1.0.0
+        docker push localhost:5050/yaroslavdomb/day06:abc1234
+        docker push localhost:5050/yaroslavdomb/day06:prod
+        docker push localhost:5050/yaroslavdomb/day06:2024-03-23
+
+        docker push yaroslavdomb/day06:1.0.0
+        docker push yaroslavdomb/day06:abc1234
+        docker push yaroslavdomb/day06:prod
+        docker push yaroslavdomb/day06:2024-03-23
+    
+    5) Validation:
+        docker image ls
+
+
+
+Task-4
+    Use only curl with no docker:
+
+    1) Get all images in local repo in localhost:5050
+    2) Get all tags of day06 image in localhost:5050
+    3) Get manifest of image under localhost:5050/day06:1.0
+    
+Solution-4
+    curl.exe http://localhost:5050/v2/_catalog
+    curl.exe http://localhost:5050/v2/yaroslavdomb/day06/tags/list
+    curl.exe http://localhost:5050/v2/yaroslavdomb/day06/manifests/1.0
+
+
+
+Task-5 — Re-use layers
+Собери два образа: первый на базе alpine:latest с ENV APP=first, второй на базе alpine:latest с ENV APP=second. Запушь оба в localhost:5050. Убедись через docker images что оба образа используют одинаковый базовый слой alpine:latest.
