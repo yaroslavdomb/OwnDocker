@@ -1,0 +1,166 @@
+//********************__BASIC__******************************
+Security options:
+    1) Change user from root to non-root
+    2) Use Rootless Docker (there are some restrictions and config that need to  be done)
+    3) Use Capabilities
+
+1) CHANGING USER
+    #Section in Dockerfile related to the user
+        RUN useradd --no-create-home --shell /bin/false --uid 1000 appuser
+        RUN chown -R appuser:appuser /app
+        USER appuser
+
+    Where:
+        --no-create-home = less specific user space (Desctop/MyDocuments & so on) = more secure 
+        --shell /bin/false = grant that user will not be interactive
+        second command = switch from root:root to appuser:appuser for all the sub-folders of /app
+
+2) ROOTLESS
+    If you left the container and reach the host you'll get the same privileges as docker creator
+    There are couple of limitations for rootless mode inside the container:
+        - Not allowed ports under 1024(by  default, but could be allowed)
+        - there is no --privileged mode
+        - works slower due to additional checks and layers
+
+3) CAPABILITIES
+    #remove all caps given by default
+    docker run --cap-drop ALL myapp
+
+    #first - remove all caps, than add only needed
+    docker run --cap-drop ALL --cap-add NET_BIND_SERVICE myapp
+    # NET_BIND_SERVICE — allow bind for ports < 1024
+
+    # In docker-compose.yml:
+    services:
+    app:
+      cap_drop:
+        - ALL
+      cap_add:
+        - NET_BIND_SERVICE
+
+
+//********************__EXAMPLES__******************************
+
+    # Start with specific UID, 1000 = first non-system UID number
+    docker run --user 1000 myapp
+
+    # Start using UID:GID
+    docker run --user 1000:1000 myapp
+
+    # Start as user XXX if exist in /etc/passwd
+    docker run --user appuser myapp
+
+    # Start as ROOT for check during develoment
+    docker run --user root -it myapp bash
+
+    # Start as current HOST user
+    docker run --user $(id -u):$(id -g) myapp
+
+
+//********************__BEST_PRACTIES__******************************
+1) Use UID:GUID instead of names (especially for distroless images!!!)
+2) Switch FROM root to the user on the last stage (prod) in multi-stage dockerfile
+3) 
+
+//********************__ANTI_PATTERNS__******************************
+1) Use sudo inside the container
+    You can avoid this by entering the container with sudo cred
+        docker exec -u 0 -it <container_id> sh
+
+//********************__TASKS__******************************
+TASK-1 
+    Run container with and without user declaration:
+        docker run --rm alpine whoami
+        docker run --rm alpine id
+        docker run --rm --user 1000 alpine whoami
+        docker run --rm --user 1000 alpine id
+        docker run --rm --user 1000:1000 alpine whoami
+        docker run --rm --user 1000:1000 alpine id
+Solution-1
+    whoami = goes to etc/passwd and look for the name 1000. Tht's why you got "unknown uid 1000"
+    id = it's more low level app, so it does not care about names in etc/passwd.
+
+    It's also explain the diff between --user 1000 (created user only) and --user 1000:1000 (created user+group)
+
+TASK-2
+    Take the primitive Dockerfile and spread the commands of user creation and configuration to apply user changing. Base Dockerfile:
+        FROM python:3.12-slim
+        WORKDIR /app
+        COPY . .
+        RUN pip install --no-cache-dir -r requirements.txt
+        CMD ["python", "app.py"]
+    Test it with commands 
+        docker run --rm --user appuser d8t2 whoami
+        docker run --rm --user appuser d8t2 id
+Solution-2
+    See t2.Dockerfile
+
+
+TASK-3
+    1) Create folder "output" in your folder. 
+    2) Create 2 files with 
+        docker run --rm -v ${PWD}/output:/output alpine sh -c "echo 'hello' > /output/file.txt"
+        docker run --rm --user 1000:1000 -v ${PWD}/output:/output alpine sh -c "echo 'hello' > /output/file2.txt"
+    3) Validate owner
+        docker run --rm -v ${PWD}/output:/output alpine ls -l /output
+    
+    By the way, on Win OS in output folder owners of the files is the same:
+        Get-Acl .\output\file.txt | Select-Object Owner
+        Get-Acl .\output\file2.txt | Select-Object Owner
+
+TASK-4
+    Capabilities
+        If you run 
+            docker run --rm --cap-drop ALL nginx:alpine
+        you'll get error CHOWN Operation not permitted
+        Then let's try to add all needed:
+            docker run --rm --cap-drop ALL --cap-add CHOWN --cap-add SETUID --cap-add SETGID --cap-add NET_BIND_SERVICE nginx:alpine
+        Test if this is working with 
+            docker run --rm -p 8080:80 --cap-drop ALL --cap-add CHOWN --cap-add SETUID --cap-add SETGID --cap-add NET_BIND_SERVICE nginx:alpine
+            curl.exe http://localhost:8080
+
+TASK-5
+    Docker.sock
+        Start the container with socket:
+            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -it docker:cli sh
+        Execute inside the container:
+            docker ps
+            docker images
+        Start another container from inner: 
+            docker run --rm alpine echo "Started from inner container"
+
+TASK-6
+Шаг 1: запусти свой Flask образ из задания 2 с флагом --read-only:
+docker run --rm --read-only -p 5000:4567 myapp:user
+Запустился? Если нет — какая ошибка?
+Шаг 2: добавь tmpfs для папок куда приложение пишет:
+docker run --rm --read-only \
+  --tmpfs /tmp \
+  -p 5000:4567 \
+  myapp:user
+Проверь что приложение отвечает:
+bashcurl http://localhost:5000
+Шаг 3: добавь read_only: true и tmpfs в docker-compose.yml из задания 3.
+
+Задание 7* — Бонус
+Возьми финальный docker-compose.yml из задания 3 и применико всем сервисам максимальный набор ограничений:
+
+user: "1000:1000"
+read_only: true
+cap_drop: [ALL]
+cap_add — только необходимые
+tmpfs — только необходимые папки
+
+Каждый сервис должен:
+
+запускаться без ошибок
+отвечать на запросы
+работать от непривилегированного пользователя
+
+Проверка:
+bashdocker compose up -d
+docker compose ps
+docker compose exec app whoami
+
+Критерии выполнения
+ЗаданиеПроверка1whoami возвращает разные результаты2docker run myapp:user whoami → не root3Понимаешь разницу в правах на файлы4nginx запускается с минимальными capabilities5Видишь контейнеры хоста изнутри контейнера6Приложение работает с --read-only7*Весь стек работает с максимальными ограничениями

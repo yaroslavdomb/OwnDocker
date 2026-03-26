@@ -3,12 +3,12 @@ DONE| DAY | TOPIC                | WHAT TO BE LEARNED
             ===== DOCKER ===== 
  1  |  1  | Dockerfile - basics  | All available Dockerfile key words, multi-stage build
  1  |  2  | Networks             | types of networks, creation, container communication, ipvlan vs macvlan
- 1  |  3  | Volumes              | bind mount, named volume, tmpfs, data backup
+ 1  |  3  | Volumes              | bind mount, named/anonymous volume, tmpfs, data backup
  1  |  4  | Variables            | ARG, ENV, .env file, environment substitution in compose
  1  |  5  | Docker Compose       | Full options example explanation and research
-    |  6  | Docker Registry      | push/pull, private registry, image tagging
-    |  7  | Optimization         | layers, cache, image size, .dockerignore
-    |  8  | Permissions          | USER in Dockerfile, --user flag, docker.sock, permissions for DinD, rootless Docker
+ 1  |  6  | Docker Registry      | push/pull, private registry, image tagging
+ 1  |  7  | Optimization         | layers, cache, image size, .dockerignore, config, manifest, BuildKit, OCI
+ 1  |  8  | Permissions          | USER in Dockerfile, --user flag, docker.sock, permissions for DinD, rootless Docker
     |  9  | Practice             | run a stack: nginx + app + postgres via compose
     | 10  | Swarm - Basics       | nodes, managers, workers, docker swarm init
     | 11  | Swarm - Services     | docker service create, replicas, scaling
