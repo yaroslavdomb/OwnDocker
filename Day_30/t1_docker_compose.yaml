@@ -1,0 +1,15 @@
+services:
+    jenkins_t1:
+        image: jenkins/jenkins:lts-jdk21
+        container_name: jenkins
+        ports:
+            - "3000:3000"
+            - "8091:8080"
+            - "50000:50000"
+        volumes:
+            - jenkins_home:/var/jenkins_home
+        environment:
+            - JAVA_OPTS=-Djava.net.preferIPv4Stack=true
+
+volumes:
+    jenkins_home:

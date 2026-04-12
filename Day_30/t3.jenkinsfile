@@ -1,0 +1,28 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('Build') {
+            steps {
+               echo "job name = ${env.JOB_NAME}"
+			   echo "build number = ${env.BUILD_NUMBER}"
+			   echo "work directory = ${env.WORKSPACE}"
+            }
+        }
+        
+        stage('Test') {
+            steps {
+               sh 'echo "Current date = $(date)"'
+			   echo "Agent name = ${env.NODE_NAME}"
+            }
+        }
+        
+        stage('Deploy') {
+            steps {
+                sh 'env | sort'
+                //sh 'echo "$(env | sort)"' = env command by itself print the vars, so no need to use it twice
+            }
+        }
+        
+    }
+}

@@ -1,0 +1,53 @@
+//******************** __ TYPES OF CREDENTIALS __  ******************
+USERANE + PASSWORD 
+    Example:
+        withCredentials([usernamePassword(credentialsId: 'my-git-creds', 
+                                        passwordVariable: 'MY_PASS', 
+                                        usernameVariable: 'MY_USER')]) {
+            sh "echo 'Logging in as $MY_USER'"
+            sh "login_command --user $MY_USER --password $MY_PASS"
+        }
+
+SECRET TEXT 
+    It's an API token.
+    Example:
+        withCredentials([string(credentialsId: 'my-token', variable: 'TOKEN')]) {
+            sh '...'
+        }
+
+        withCredentials = code section where secret will be used
+        string = type of secret. Could be in acording to the type used:
+            usernamePassword
+            file
+            sshUserPrivateKey
+        credentialsId: "<id>" = id(name) that you gave to the secret while configuration in Jenkins
+        variable: '<var_name>' = name of variable that temporary will hold you secret inside the block of code
+
+SECRET FILE
+    In case you need file and not secret string itself. 
+    So it's any file with any content - Jenkins don't know the structure inside.
+    Jenkins garantee to delete the temp file with secret that is used while works with secret, even pieline failure. 
+    Example:
+        withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
+                    sh 'kubectl apply -f deployment.yaml'
+        }
+
+SSH 
+    Used for any SSH connection
+    Example:
+        withCredentials([sshUserPrivateKey(
+                        credentialsId: 'prod-server-key',
+                        keyFileVariable: 'SSH_KEY'
+        )]) {
+            sh 'ssh -i $SSH_KEY user@prod-server.com "deploy.sh"'
+        }
+
+CERTIFICATE 
+    For PKCS#12 only. Jenkins knows structure inside, so there will be given 3 VARs to you for proper using of PKCS#12
+
+Put attention - each one of the secret has his own syntax to use in the Jenkinsfile
+
+
+//************************__BEST_PRACTIES__ **********************************
+1) Use "withCredentials" section to get access to the secret inside it ONLY!
+2) Use single quotation instead of double - it related by whom the variable substituted (inside shell or by Groovy)

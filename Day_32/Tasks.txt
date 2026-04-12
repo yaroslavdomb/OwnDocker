@@ -1,0 +1,22 @@
+Task-1
+Напиши pipeline с двумя stages: Build и Deploy. Deploy должен выполняться только если ветка main или release. В глобальном post — всегда печатать "Pipeline завершён", при успехе — "Всё хорошо", при падении — "Что-то сломалось".
+
+Task-2
+Напиши stage Integration Tests который:
+
+пропускается если ветка начинается на feature/
+пропускается если переменная окружения SKIP_TESTS равна true
+использует beforeAgent true
+в post этого stage: при unstable печатает предупреждение, при failure печатает ошибку
+
+
+Task-3
+Напиши полный pipeline используя только пройденные темы (дни 30-32):
+
+агент: docker образ maven:3.9
+cron запуск каждый день в полночь по будням
+environment с переменной DEPLOY_ENV и credentials nexus-creds типа usernamePassword
+stage Build — всегда
+stage Test — всегда, но пропускает если DEPLOY_ENV == 'hotfix'
+stage Publish — только ветка main И только если DEPLOY_ENV не равен staging, использует withCredentials для публикации на nexus
+глобальный post: fixed и regression шлют разные сообщения, always чистит workspace

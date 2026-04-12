@@ -1,0 +1,48 @@
+//************************ EXAMPLE **********************************
+Parallel could be:
+1) Inside stage - preferable as it support all the configuration options (when/post/agent) per each stage.
+    
+    stage('Tests') {
+        failFast true
+        parallel {
+            stage('Unit Tests') {
+                when {
+                    branch 'develop'
+                    beforeAgent true
+                }
+                agent { docker 'node:18-alpine' }
+                steps { sh 'npm run test:unit' }
+                post {
+                    success {echo 'SUCCESS'}
+                    failure {echo 'FAILURE'}
+                }
+            }
+            stage('Integration Tests') {
+                agent { docker 'python:3.11-alpine' }
+                steps { sh 'npm run test:integration' }
+            }
+            stage('E2E Tests') {
+                steps { sh 'npm run test:e2e' }
+            }
+        }
+    }
+
+2) Inside steps
+stage('Tests') {
+    steps {
+        parallel(
+            'Unit Tests': {
+                sh 'npm run test:unit'
+            },
+            'Integration Tests': {
+                sh 'npm run test:integration'
+            }
+        )
+    }
+}
+
+//************************ __BEST_PRACTIES__ **********************************
+1) Do not share resources between parallel steges/steps for writing (for reading it's OK)
+2) Use failFast true to prevent resource wasting
+3) There is no nested parallel (parallel inside parallel)
+4) 

@@ -1,0 +1,242 @@
+
+//*************************** __ Install Jenkins (fast) __*********************
+    1) cd .\Day_30
+    2) docker compose -f .\jenkins_docker_compose.yaml up -d
+
+    3) To get admin pass use the following:
+            docker compose -f .\jenkins_docker_compose.yaml exec jenkins_service cat /var/jenkins_home/secrets/initialAdminPassword
+        OR
+            docker exec jenkins_1 cat /var/jenkins_home/secrets/initialAdminPassword
+    
+        The diff is that 
+        docker comppose is working with SERVICES you created from FILE (so you need to mention both properly),  while
+        docker itself is working with CONTAINER (and you need to use only container name)
+
+    docker compose -f .\jenkins_docker_compose.yaml down -v
+
+
+//*************************** __ Types of project execution __*********************
+1) PIPELINE:
+    agent - on which agent you going to execute the job. There are couple ways to set agent on wich to execute: 
+        - agent { label 'linux' }   = with label
+        - agent {                   = with docker
+                docker {               
+                    image 'python:3.12-slim'
+                }
+            }
+        - with Kubernetis (will create pod, execute pipeline and then delete it)
+        - agent none = execute each step on separate agent, so on global level there is no agent
+        In case mentioned agent any it could be also Master internal agent. In prod usually it's set to be zero, so only external agents available.
+    stages - container of all actions you going to execute in your pipeline
+        1) only one stages
+        2) inside stages only stage
+        3) minimum 1 stage inside
+        stage('stage_name') - single action. Can include stages (nested stages). Can run in parallel. 
+            Blocks inside stage:
+            agent - define agent for this stage only
+            when - condition to start stage. If condition is false stage after this when will be skipped
+            environment - env vars for specific stage after this section
+            tools - tool mentioned inside the section will be installed automatically
+            input - stop the pipeline and wait for manual confirmation to continue
+            options - config for specific stage
+            parallel - execution inner stages in parallel
+            matrix - run with different variables values
+    environment - env vars forall stages
+    parameters - params 
+    options - 
+    triggers - when to start pipeline
+    tools  - list of global tools
+    post - what to do after pipeline/stage finish
+
+2) FREESTYLE PROJECT - type of job in Jenkins with configuration through UI only. Description saved in XML file inside Master.
+
+3) Multi-configuration - same as matrix {} block in Pipeline.
+
+4) Folder - simple organization of jobs(Jenkins projects) inside master.
+
+5) Organization Folder - automation of Folder: 
+    Jenkis scan Git for Jenkinsfile and automatically create Multibranch inside the folder.
+
+6) Multibranch Pipeline - Jenkis scan Git for Jenkinsfile and automatically create pipeline for each branch where it was found.
+
+
+//************************__BEST_PRACTIES__ **********************************
+1) Always clean workspaces in post (after execution of your pipeline repo and artifacts will be removed):
+    post {
+        always {
+            cleanWs()
+        }
+    }
+2) Use fixed and regression instead of changed to show clearly what changed:
+    post {
+        fixed {
+            slackSend color: 'good', message: "Fixed )))"
+        }
+        regression {
+            slackSend color: 'danger', message: "Broken ((("
+        }
+    }
+
+3) Use beforeAgent in WHEN clause once you have specific agent in stage - condition will be checked before the agent allocation:
+    stage('Deploy') {
+        when {
+            beforeAgent true
+            branch 'main'
+        }
+        agent { label 'production' }
+        steps { ... }
+    }
+
+4) Don't split execution on stage, but use anyOf( OR ) allOf( AND )
+    stage('Deploy') {
+        when {
+            anyOf {
+                branch 'main'
+                branch 'release/*'
+            }
+        }
+
+        steps { sh 'deploy.sh' }
+    }
+
+5) Set on global level parts of code that appear twice or more (like a creation separate method in Java)
+
+6) Use only credentials() for keeping secrets.
+
+7) Use trim() for dynamically calculated values (to remove \n in the end of line)
+
+8) Each stage that need creds better to get them again from outer source instead of transferting them between stages with any mechanism you have in Jenkins.
+
+//************************__BAD_PRACTIES__ **********************************
+1) Duplicate the message both on global and specific stage level (better t ouse global stage lvl)
+2) Ignore errors in post
+3) Keep business logic in post stage
+4) Use WHEN with branch detection instead of Multibranch with appropriate Jenkinsfiles
+5) Save secrets in env variables
+
+
+//************************__AGENT__ **********************************
+Explain where to execute the job. Could be global or per stage. In case it's missed - error will be thrown.
+Values:
+    - none (on global) = In any stage you'll have the separate tag of agent.
+    - any = The job will be executed on first available agent, include Master node of Jenkins.
+    - with label = The job will be executed on agent with specific label. Agent could have number of labels.
+                    Labels given to the agent on agent creation. You can use logical operators in expression for agent selection.
+    - with node = in addition to label it give option to select customWorkspace. Need if app has its own specific path.
+    - docker = Jenkins autocmatically will download image, start container, execute steps inside, stop and delete it.
+                Prerequsites: Docker already should be installed on the agent.
+    - dockerfile = like docker, but you have no image.
+    - kubernetes = create K8 pod, execute job, delete pod
+
+To transfer data between agent use stash/unstach
+
+//************************ __TASKS__ **********************************
+TASK-1
+
+    Напиши docker-compose.yml для запуска Jenkins со следующими требованиями:
+
+        образ jenkins/jenkins:lts-jdk21 — не jdk17, найди почему jdk17 устарел
+        имя контейнера jenkins
+        порты 8080 и 50000 проброшены на хост
+        данные Jenkins сохраняются между перезапусками
+        при старте мастер настройки не отключён
+        Java запускается с предпочтением IPv4
+Solution-1:
+    t1_docker_compose.yaml
+
+
+TASK-2
+    Create job of each type:
+
+    Pipeline
+    Freestyle project
+    Multibranch Pipeline
+    Folder
+
+    Global Requirements:
+        - each job should has description and meaningfull name
+        - Pipeline и Freestyle should not be ampty - they should do something
+        - all the jobs should be collected into your Folder
+
+    Freestyle job configuration:
+        - execute shell echo "I am Freestyle"
+        - keep the last 5 builds
+        - run each 5 minutes
+
+    Pipeline job configuration:
+        - execute shell echoecho "I am Pipeline"
+        - should be create stright in UI (Pipeline script, not from SCM)
+
+TASK-3
+    Create Pipeline script in UI Jenkins with the following:
+
+    - 3 stages: Build, Test, Deploy
+    - Each stage must contain at least two instructions inside a "steps" block.
+        Build — display job name, build number and workspace
+        Test — display current date and agent name where it was executed
+        Deploy — display all env vars sorted in ABC order
+
+TASK-4
+    Напиши pipeline который:
+
+        объявляет глобальные переменные: APP_NAME, VERSION, REGISTRY
+        в stage Build переопределяет VERSION на ${BUILD_NUMBER}-snapshot
+        в stage Release использует оригинальный VERSION
+        в каждом stage выводит текущее значение VERSION
+
+        Докажи что переопределение работает только внутри stage — снаружи значение оригинальное.
+
+TASK-5
+    Напиши pipeline с параметром ENVIRONMENT типа Choice со значениями dev, staging, prod.
+        Четыре stages:
+
+        Build — выполняется всегда
+        Test — выполняется всегда
+        Deploy Dev — только если ENVIRONMENT == dev
+        Deploy Staging — только если ENVIRONMENT == staging
+        Deploy Prod — только если ENVIRONMENT == prod
+
+        Запусти pipeline три раза с разными значениями параметра. В каждом запуске должны выполняться только нужные stages. Сделай скриншот всех трёх запусков.
+
+TASK-6
+    Напиши pipeline который намеренно падает в одном из stages и демонстрирует все блоки post:
+        groovystage('Unstable') {
+            steps {
+                sh 'exit 1'   // намеренное падение
+            }
+        }
+        ```
+
+        Pipeline должен:
+        - в `always` — выводить номер сборки и результат
+        - в `success` — выводить "Pipeline passed"
+        - в `failure` — выводить "Pipeline failed" и номер упавшей сборки
+        - в `cleanup` — выводить "Cleaning up"
+
+        Запусти дважды:
+        - первый раз с падением — проверь что срабатывает `failure`
+        - исправь pipeline чтобы не падал — проверь что срабатывает `success`
+        - проверь что `always` и `cleanup` сработали в обоих случаях
+
+TASK-7
+    Напиши один pipeline который объединяет всё изученное:
+        параметры:
+        ENVIRONMENT — choice: dev / staging / prod
+        SKIP_TESTS  — boolean
+        VERSION     — string, default: 1.0.0
+
+        environment (глобально):
+        APP_NAME  = название твоего приложения
+        IMAGE_TAG = ${VERSION}-${BUILD_NUMBER}
+
+        stages:
+        Build   — всегда, выводит IMAGE_TAG
+        Test    — только если SKIP_TESTS == false
+        Deploy  — только для нужного окружения на основе ENVIRONMENT
+        Notify  — всегда, выводит итоговый статус и все параметры
+
+        post:
+        success  — "Deployed ${IMAGE_TAG} to ${ENVIRONMENT}"
+        failure  — "Failed to deploy ${IMAGE_TAG}"
+        always   — выводит длительность сборки
+        Запусти минимум три раза с разными комбинациями параметров.

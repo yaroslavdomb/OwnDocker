@@ -1,0 +1,88 @@
+//********************* __PARAMETERS__ *********************
+Example:
+    pipeline {
+    agent none //it will be defined futher, per each stage personally
+
+    parameters {
+        choice(
+            name: 'DEPLOY_ENV',
+            choices: ['staging', 'production'],
+            description: 'Окружение для деплоя'
+        )
+        string(
+            name: 'APP_VERSION',
+            defaultValue: 'latest',
+            description: 'Тег Docker образа'
+        )
+        booleanParam(
+            name: 'RUN_TESTS',
+            defaultValue: true,
+            description: 'Запускать тесты перед деплоем?'
+        )
+        booleanParam(
+            name: 'NOTIFY_SLACK',
+            defaultValue: true,
+            description: 'Уведомить в Slack?'
+        )
+    }
+
+    environment {
+        REGISTRY  = 'registry.example.com'
+        APP_NAME  = 'my-app'
+    }
+    ...
+
+Types:
+    - string (name:'version', defaultValue:'1.0.0', description:'Version of application')
+    - text (name, defaultValue, description)
+    - booleanParam (name, defaultValue: true, description)
+    - choice (name, choices:['1','2'], description)
+    - password (name, defaultValue, description)
+
+Using:
+    Access through params.*:
+
+    stages {
+        stage('Show params') {
+            steps {
+                echo "Version: ${params.APP_VERSION}"
+                echo "Env: ${params.DEPLOY_ENV}"
+                echo "Start tests: ${params.RUN_TESTS}"
+            }
+        }
+    }
+
+Important:
+    1) defaultValue need for first build. Until it finished, there will be no params.
+    2) params do not block execution of the Jenkins flow
+
+
+//********************* __INPUT__ *********************
+Structure:
+input {
+    message 'Confirm prod deploy'       = Message for user on a screen
+    ok 'Yes'                            = Message on confirm button
+    submitter 'admin,tech-lead'         = List of person who can confirm action (while logged in into Jenkins)
+    submitter 'devops-team'             = Another list who can submit
+    submitter 'critical-management-team'= And another one who can submit
+    submitterParameter 'APPROVED_BY'    = Name of person who click on confirmation button
+    id 'input-confirmation-id'          = unique(per input) API ID, by default - automatically generated
+    parameters {                        = To keep some additional params 
+        ...
+    }
+}
+
+ID URL:
+    /job/{job-name}/{build-number}/input/{input-id}/proceed         = confirm WITH input params
+    /job/{job-name}/{build-number}/input/{input-id}/proceedEmpty    = confirm if there is NO input params
+    /job/{job-name}/{build-number}/input/{input-id}/abort           = abort
+
+    Used for:
+        - confirmation by timeout
+        - confirmation by another Jenkins job
+        - confirmation by outer system (script)
+
+Important:
+    1) Input block execution flow of Jenkins
+    2) If you do not set submitters - so ANY loged in user can confirm
+    3) If you do not set timeout for input then it will wait forever (untill confirmed)

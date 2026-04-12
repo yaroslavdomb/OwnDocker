@@ -1,0 +1,20 @@
+Task-1
+    Create pipeline that log in into Docker Hub using usernamePassword credentials with ID "docker-creds" and performs "docker pull nginx" command.
+
+Solution-1 
+    See t1.Jenkinsfile
+
+Task-2  
+Есть два секрета: api-token (Secret text) и deploy-key (SSH private key). Напиши stage который:
+
+через API токен делает запрос к https://api.example.com/notify
+через SSH подключается к deploy@server.example.com и выполняет systemctl restart app
+оба секрета используются в одном withCredentials блоке
+
+Task-3  
+Напиши полный pipeline с агентом docker 'node:18-alpine' который:
+
+в environment объявляет переменную APP_NAME = 'my-app'
+в stage Test запускает npm test
+в stage Deploy использует Secret file с ID env-config и SSH ключ с ID prod-key чтобы скопировать файл на сервер через scp и перезапустить приложение
+stage Deploy выполняется только если ветка main

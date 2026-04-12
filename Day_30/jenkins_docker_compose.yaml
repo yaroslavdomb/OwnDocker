@@ -1,0 +1,15 @@
+services:
+    jenkins_service:
+        image: jenkins/jenkins:lts-jdk17
+        container_name: jenkins_1
+        ports:
+            - "3000:3000"
+            - "8080:8080"
+            - "50000:50000"
+        volumes:
+            - jenkins_home:/var/jenkins_home
+        environment:
+            - JAVA_OPTS=-Djenkins.install.runSetupWizard=true -Djava.net.preferIPv4Stack=true
+
+volumes:
+    jenkins_home:

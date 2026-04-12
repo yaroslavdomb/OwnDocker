@@ -1,0 +1,322 @@
+//************************* __ WHEN __ *************************
+Conditional execution of flow. By default checked AFTER agent start for this stage.
+Could check:
+    - branch
+    - env variables
+    - expression
+    - tag
+    - previous building status
+    - combination of above using anyOf(OR) / allOf(AND) / not(NOT)
+
+Works ONLY inside some of the stage. Can't be used on global level of pipeline!
+
+//************************* __ POST __ *************************
+What to do AFTER the stage/pipeline execution. This section will run ALWAYS, independently to results of execution
+
+Options of 
+    - always    { }  // run always
+    - success   { }  // only if SUCCESS
+    - failure   { }  // only if FAILURE
+    - unstable  { }  // tests failed but build completed
+    - aborted   { }  // build was stopped manually
+    - changed   { }  // status of current build differ from previous
+    - fixed     { }  // was failure, became success
+    - regression { }  // was success, bacame failure
+    - cleanup   { }  // the most last one, will be executed after all others post
+
+Even if the WHEN going to skip the stage with post{always{}} , the code in always section will be executed!!! 
+
+//************************ __BEST_PRACTIES__ **********************************
+    1) Use "beforeAgent true", so the agent will start ONLY AFTER the test of condition, so resources related to start and stop agent will be saved.
+    
+    2) Use "|| true" to finish un-install command. It will prevent appearing in the logs additional issues that can occure during un-installation and lead to failure of Jenkins itself.
+
+    3) Use post for specific stage if the result and actions should be realted to the stage only. Otherwise use global post
+
+    4) Use "fixed" and "regression" instead of "changed" to more clear explain what happend with Jenkins pipeline
+
+    5) Cleanup should be the last one
+
+    6) In case of couple of actions in conditio block use the first one that is cheaper for checking (for example put first strong equality and the second - regexp) 
+
+//************************* __ COMPLEX EXAMPLE __ *************************
+pipeline {
+    agent {
+        docker {
+            image 'node:18-alpine'
+            args '-v /var/run/docker.sock:/var/run/docker.sock'
+        }
+    }
+
+    //Run each day at 2:00 
+    triggers {
+        cron('0 2 * * *')
+    }
+
+    // Secrets from Jenkins storage (have to be configured in storage)
+    environment {
+        APP_NAME = 'my-node-app'
+        DOCKER_REGISTRY = 'registry.example.com'
+        DOCKER_CREDS = credentials('docker-registry-creds')
+        SONAR_TOKEN = credentials('sonarqube-token')
+    }
+
+    stages {
+        //show last 5 commits, info about each one will take single line
+        stage('Checkout') {
+            steps {
+                checkout scm
+                sh 'git log --oneline -5'
+            }
+        }
+
+        //npm ci - dependency installing, optimized for CI/CD, see below
+        stage('Install') {
+            steps {
+                sh 'npm ci'
+            }
+            post {
+                failure {
+                    echo 'npm install failed — check package-lock.json'
+                }
+            }
+        }
+
+        //skip lint stage for branches of hotfix - we need it ASAP
+        stage('Lint') {
+            when {
+                not { branch pattern: 'hotfix/*', comparator: 'GLOB' }
+            }
+            steps {
+                sh 'npm run lint'
+            }
+        }
+
+        stage('Test') {
+            steps {
+                sh 'npm test -- --coverage'
+            }
+            post {
+                always {                    
+                    junit 'coverage/junit.xml'
+                    publishHTML([
+                        allowMissing: false,
+                        reportDir: 'coverage/lcov-report',
+                        reportFiles: 'index.html',
+                        reportName: 'Coverage Report'
+                    ])
+                }
+                unstable {
+                    slackSend channel: '#dev',
+                              color: 'warning',
+                              message: "Unstable tests ${env.JOB_NAME} #${env.BUILD_NUMBER}"
+                }
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            when {
+                anyOf {
+                    branch 'main'
+                    branch 'develop'
+                }
+            }
+            steps {
+                withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
+                    sh '''
+                        npx sonar-scanner \
+                          -Dsonar.projectKey=${APP_NAME} \
+                          -Dsonar.host.url=https://sonar.example.com \
+                          -Dsonar.login=${SONAR_TOKEN}
+                    '''
+                }
+            }
+        }
+
+        stage('Build Docker Image') {
+            when {
+                not { branch pattern: 'feature/*', comparator: 'GLOB' }
+                beforeAgent true
+            }
+            steps {
+                script {
+                    def imageTag = "${env.BRANCH_NAME}-${env.BUILD_NUMBER}"
+                    sh "docker build -t ${DOCKER_REGISTRY}/${APP_NAME}:${imageTag} ."
+                    sh "docker tag ${DOCKER_REGISTRY}/${APP_NAME}:${imageTag} ${DOCKER_REGISTRY}/${APP_NAME}:latest"
+                    env.IMAGE_TAG = imageTag
+                }
+            }
+            post {
+                failure {
+                    sh "docker rmi ${DOCKER_REGISTRY}/${APP_NAME}:${env.IMAGE_TAG} || true"
+                }
+            }
+        }
+
+        stage('Push Docker Image') {
+            when {
+                not { branch pattern: 'feature/*', comparator: 'GLOB' }
+            }
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'docker-registry-creds',
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
+                    sh 'docker login ${DOCKER_REGISTRY} -u $DOCKER_USER -p $DOCKER_PASS'
+                    sh "docker push ${DOCKER_REGISTRY}/${APP_NAME}:${env.IMAGE_TAG}"
+                    sh "docker push ${DOCKER_REGISTRY}/${APP_NAME}:latest"
+                }
+            }
+        }
+
+        stage('Deploy to Staging') {
+            when {
+                branch 'develop'
+                beforeAgent true
+            }
+            steps {
+                withCredentials([
+                    sshUserPrivateKey(
+                        credentialsId: 'staging-server-key',
+                        keyFileVariable: 'SSH_KEY'
+                    ),
+                    file(
+                        credentialsId: 'staging-env-file',
+                        variable: 'ENV_FILE'
+                    )
+                ]) {
+                    sh '''
+                        scp -i $SSH_KEY $ENV_FILE deploy@staging.example.com:/opt/app/.env
+                        ssh -i $SSH_KEY deploy@staging.example.com "
+                            docker pull ${DOCKER_REGISTRY}/${APP_NAME}:${IMAGE_TAG} &&
+                            docker stop ${APP_NAME} || true &&
+                            docker run -d --rm \
+                              --name ${APP_NAME} \
+                              --env-file /opt/app/.env \
+                              -p 3000:3000 \
+                              ${DOCKER_REGISTRY}/${APP_NAME}:${IMAGE_TAG}
+                        "
+                    '''
+                }
+            }
+            post {
+                success {
+                    slackSend channel: '#deploys',
+                              color: 'good',
+                              message: "Deployed to staging: ${env.IMAGE_TAG}"
+                }
+            }
+        }
+
+        stage('Deploy to Production') {
+            when {
+                allOf {
+                    branch 'main'
+                    expression { return params.DEPLOY_TO_PROD == true }
+                }
+                beforeAgent true
+            }
+            input {
+                message 'Deploy on production?'
+                ok 'Yes'
+                submitter 'admin,tech-lead'
+            }
+            steps {
+                withCredentials([
+                    sshUserPrivateKey(
+                        credentialsId: 'prod-server-key',
+                        keyFileVariable: 'SSH_KEY'
+                    ),
+                    file(
+                        credentialsId: 'prod-env-file',
+                        variable: 'ENV_FILE'
+                    )
+                ]) {
+                    sh '''
+                        ssh -i $SSH_KEY deploy@prod.example.com "
+                            docker pull ${DOCKER_REGISTRY}/${APP_NAME}:${IMAGE_TAG} &&
+                            docker stop ${APP_NAME} || true &&
+                            docker run -d --rm \
+                              --name ${APP_NAME} \
+                              --env-file /opt/app/.env \
+                              -p 3000:3000 \
+                              ${DOCKER_REGISTRY}/${APP_NAME}:${IMAGE_TAG}
+                        "
+                    '''
+                }
+            }
+            post {
+                success {
+                    slackSend channel: '#deploys',
+                              color: 'good',
+                              message: "PRODUCTION deployed: ${env.IMAGE_TAG}"
+                }
+                failure {
+                    slackSend channel: '#deploys',
+                              color: 'danger',
+                              message: "Deploy on PRODUCTIONfailed, starting rollback ..."
+                    withCredentials([sshUserPrivateKey(
+                        credentialsId: 'prod-server-key',
+                        keyFileVariable: 'SSH_KEY'
+                    )]) {
+                        sh '''
+                            ssh -i $SSH_KEY deploy@prod.example.com "
+                                docker stop ${APP_NAME} || true &&
+                                docker run -d --rm \
+                                  --name ${APP_NAME} \
+                                  --env-file /opt/app/.env \
+                                  -p 3000:3000 \
+                                  ${DOCKER_REGISTRY}/${APP_NAME}:latest
+                            "
+                        '''
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        // Clean docker images and workspace
+        always {            
+            sh "docker rmi ${DOCKER_REGISTRY}/${APP_NAME}:${env.IMAGE_TAG} || true"
+            cleanWs()
+        }
+        fixed {
+            slackSend channel: '#dev',
+                      color: 'good',
+                      message: "${env.JOB_NAME} start to work after ${env.BUILD_NUMBER}"
+        }
+        regression {
+            slackSend channel: '#dev',
+                      color: 'danger',
+                      message: "${env.JOB_NAME} broken after #${env.BUILD_NUMBER}"
+        }
+    }
+}
+
+//************************* __ EXPLANATION __ *************************
+1) npm ci = the same as "npm install" but for Jenkins Pipeline.
+    It will include:
+        1) Try to delete folder "node_modules" to grant clean installation.
+        2) Used package-lock.json dependency only
+        3) Faster then regular (it doesn't search depemdencies/build dependency tree - just used package-lock.json)
+        4) Grant the same lib version as developer has locally
+
+2) Lint stage - automatically check code 
+    - code style (quatation marks, spaces)
+    - un-used variables
+    - static analysis (typo)
+
+3) junit 'coverage/junit.xml' - visualisaation of test results in Jenkins UI itself
+
+4) comparator: 'GLOB' - explain how to relate to the text inside pattern string
+    There are couple types of it:
+        - GLOB = standard search. * = any character
+        - REGEXP = regular expression
+        - EQUALS = strong equation to the string
+
+5) Section input {} - ask for MANUAL confirmation for execution next stage
+    ok 'yes' = there will be a button with "Yes" as a text on it to confirm
+
+                
