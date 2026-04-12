@@ -1,0 +1,77 @@
+//********************* __INTEGRATION TYPES__ *********************
+1) Webhook      = GitHub push event into Jenkins, immediatly after pushing Jenkins start
+2) SCM Polling  = Jenkins check the events on GitHub by timetable
+3) Cron         = Jenkins runs by cron configuration (no Github as trigger in the schema)
+
+//********************* __PLUGINS__ *********************
+
+1) GitHub Integration Plugin
+2) Generic Webhook Trigger Plugin - can accept any system (GitHub/GitLab/Bitbacket/Jira) 
+3) Multibranch Scan Webhook Trigger + GitHub Branch Source Plugin
+4) GitLab Plugin / Bitbucket Plugin
+
+//********************* __WEBHOOK__ *********************
+
+Git send message to Jenkins to trigger it about new data and execute needed actions.
+
+1) Need installed inside Jenkins plugin from GitHub
+2) Inside the pipeline you need to set the trigger on Github push:
+    pipeline {
+        agent any
+        triggers {
+            githubPush() //added by "GitHub Integration Plugin", works with GitHub ONLY!!!
+        }
+    }
+3) Inside the GitHub you need to configure webhook for the branch^
+    GitHub Repository → Settings → Webhooks → Add webhook
+
+    Payload URL:  http://jenkins.example.com/github-webhook/
+    Content type: application/json
+    Events:       Select which events wil trigger Jenkins
+
+4) Events could serve as trigger:
+    Push                — push into any branch
+    Pull Request        — open/close/update of PR
+    Create              — create branch/tag
+    Delete              — deleted branch/tag
+    Release             — release created
+    Workflow dispatch   — manual start
+
+//********************* __SCM POLLING__ *********************
+
+Jenkins ask GitHub about changes according to timetable (by cron). If yes - start the job in Jenkins, if no - do nothing.
+
+pipeline {
+    agent any
+    triggers {
+        pollSCM('H * * * *') //check each hour, same as ('0-59 * * * *') 
+    }
+}
+
+//********************* __CRON__ *********************
+Start job by timetable and regardless to the change occurance.
+
+pipeline {
+    agent any
+    triggers {
+        cron('0 3 * * *') //check exactly at 3:00 
+    }
+}
+
+//********************* __IMPORTANT__ *********************
+
+1) Triggers will be known after first build (as params)
+2) In caase Jenkins is behind firewall or on local machine and you are using webhook, you'll need an HTTP address.
+    Use ngrok or PollSCM instead. Ngrok will give you temporary address, while PollSCM - revert the direction, so usually firewall will allow you to get outside and check the Git for changes.
+
+//********************* __GITHUB WEBHOOK CONFIG__ *********************
+
+1) Payload URL = http://jenkins.example.com/github-webhook/ - there is a place where NGROK could be used to set Jenkins temporal address
+
+2) Content Type = application/json - best practies to use json
+
+3) Secret = my-super-secret-string - Github build the header X-Hub-Signature-256 as SHA256(body + secret). Then Jenkis check the header. If it's the same - start execution. This protect Jenkins by overload of triggers by anyone. Of course, the same secret as in GitHub should be configured in Jenkins via Manage Jenkins → Credentials → Add Credentials ---> Kind: Secret text, Secret: my-secret, ID: github-webhook-secret
+
+
+
+
