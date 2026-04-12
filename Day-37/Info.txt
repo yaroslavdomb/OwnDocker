@@ -1,0 +1,499 @@
+//******************** __SHARED LIBS__ ****************
+Need: re-use the code
+Registration of the library: 
+    In Jenkins:         Manage Jenkins → Configure System → Global Pipeline Libraries
+    Name:               my-lib  //This name should be used in @Library('my-lib')
+    Default version:    main
+    Source:             GIT → https://github.com/org/my-shared-library.git
+
+To let the libs be used we need to Register the lib and then load it.
+    @Library('lib') // one-time on the top of the Jenkins file
+
+shared libs could be of 3 types:
+    - vars (global functions, each class become an object with the methods declared inside the file)
+    - src (fully OOP code on Groovy - constructors, class variables, methods. Easy to read.)
+    - resources (non-Groovy  data: JSON-templates, XML-configurations, Shell-scripts, SQL-requests.)
+
+VARS:
+    Technically it could have the fields, but it's dangerous cause it will have a global state. 
+    Having the fields means that you need to move the file into src section. 
+    Jenkins will compile your file one-time and create object with name = className. No need to import it.
+    By objName.methodName you can get access to any of the methods described in the file.
+    There is a single method could be reached by usin objName only - call() methoid.
+
+    Example-1
+        //Lets say vars/dockerBuild.groovy has the following code inside (in Groovy language)
+        //Cause of fileName = dockerBuild, you'll get the object with name dockerBuild and 2 following methods:
+            def call(String imageName, String tag) {
+                sh "docker build -t ${imageName}:${tag} ."
+            }
+            def k8Build(String env) {
+                sh "kubectl apply -f k8s/${env}/"
+            }
+
+        Using in Jenkins:
+
+            @Library('my-lib') _
+
+            pipeline {
+                agent { label 'infra' }
+                stages {
+                    stage('Build') {
+                        steps {
+                            //here you call call() method with 2 args by filename (dockerBuild) only
+                            dockerBuild('my-app', env.GIT_COMMIT)
+
+                            //here you call call() method with 2 args by filename (dockerBuild) AND method name
+                            dockerBuild.call('my-app', env.GIT_COMMIT)
+
+                             //here you call function by file(dockerBuild) AND method(k8Build) inside it
+                            dockerBuild.k8Build('123asd')
+                        }
+                    }
+                }
+            }
+
+    Example-2
+        Groovy file vars/dockerPush.groovy code
+            def call(Map configArgMap) {
+                withCredentials([usernamePassword(
+                    //using of map and via point - getting access to each argument
+                    credentialsId: configArgMap.credentialsId,   
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
+                    sh "echo ${DOCKER_PASS} | docker login -u ${DOCKER_USER} --password-stdin"
+                        //using of map and via point - getting access to each argument
+                    sh "docker push ${configArgMap.imageName}:${configArgMap.tag}"
+                    sh "docker logout"
+                }
+            }
+
+        Using in Jenkins:
+            dockerPush(                             //call by objName only, cause it's defined as a call() method
+                imageName: 'my-app',                //here we have a first arg
+                tag: env.GIT_COMMIT,                //second
+                credentialsId: 'dockerhub-creds'    //third
+            )
+
+    Example-3 (Wrapper/Decorator pattern)
+
+        Here you need to know a bit Groovy grammatic:
+            def myBlock = { sh 'make test' }    //closure defenition
+            myBlock()                           //closure using
+        According to the example below, you should use the following:
+            withSlack.call([channel: '#ci'], { sh 'make test' })
+        OR in short form due to call method name
+            withSlack([channel: '#ci'], { sh 'make test' })
+        BUT Groovy allow to extract out of args list the last arg if it's a closure, so it will be the same:
+             withSlack([channel: '#ci']) { sh 'make test' }
+
+
+        // file = vars/withSlack.groovy
+        def call(Map params, Closure body) {
+            try {
+                body()
+                slackSend channel: params.channel, message: "Success"
+            } catch(e) {
+                slackSend channel: params.channel, message: "Failed: ${e.message}"
+                throw e
+            }
+        }
+        
+        Using in Jenkins: 
+            withSlack(channel: '#ci') { sh 'make test' }
+
+    As BEST practice you should create the file with the same name as your groovy but postfix .txt
+    This file will be documentation that explain how to use your vars.
+    Jenkins will show it under http://your-jenkins-URL/job/jobName/pipeline-syntax/globals
+    Example: file "deploy.txt"
+        Deploys the application to the target environment.
+        ## Parameters
+        - `env` (String): Target environment (`dev`, `staging`, `prod`)
+        - `config.manifestPath` (String, optional): Path to K8s manifests
+       
+
+SRC:
+    Totally OOP practice on Groovy.
+    Rules:
+        - Classes should be serializable (implements Serializable) = this will allow to keep state of the pipeline
+        - Constructor should get scrit OR this = this will allow to get access to the sh/echo/env and so on
+        - package should include file pathfrom src  till the fileName:
+            src/org/mycompany/Utils.groovy → package org.mycompany
+
+    Example-1
+        File src/org/mycompany/Docker.groovy as definition
+
+            package org.mycompany
+
+            class Docker implements Serializable {
+                // Serializable обязателен — Jenkins сериализует pipeline state
+
+                private def script  // ссылка на pipeline context (sh, env, etc)
+                private String imageName
+                private String tag
+
+                Docker(script, String imageName, String tag) {
+                    this.script = script
+                    this.imageName = imageName
+                    this.tag = tag
+                }
+
+                def build() {
+                    script.sh "docker build -t ${imageName}:${tag} ."
+                }
+
+                def push(String credentialsId) {
+                    script.withCredentials([script.usernamePassword(
+                        credentialsId: credentialsId,
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_PASS'
+                    )]) {
+                        script.sh """
+                            echo ${script.env.DOCKER_PASS} | docker login -u ${script.env.DOCKER_USER} --password-stdin
+                            docker push ${imageName}:${tag}
+                            docker logout
+                        """
+                    }
+                }
+
+                def  () {
+                    script.sh "docker rmi ${imageName}:${tag} || true"
+                }
+            }
+
+        Using in Jenkins:
+            //Name of the library how it was registered inside the Jenkins configs, NOT THE filename!!!
+            @Library('my-lib') _
+
+            // import of the file with object defenition - have to be!!!
+            import org.mycompany.Docker
+
+            pipeline {
+                agent { label 'infra' }
+                stages {
+                    stage('Build & Push') {
+                        steps {
+                            script {
+                                def docker = new Docker(this, 'my-app', env.GIT_COMMIT)     //build object
+                                docker.build()                                              //call object method 1
+                                docker.push('dockerhub-creds')                              //call object method 2
+                                docker.cleanup()                                            //call object method 3
+                            }
+                        }
+                    }
+                }
+            }
+            
+VARS vs SRC:
+    for complex logic = src, for simple logic (single steps) = vars 
+
+RESOURCES
+    Example-1
+        File resources/scripts/cleanup.sh
+            #!/bin/sh
+            docker ps -aq --filter "status=exited" | xargs docker rm -f
+            docker images -q --filter "dangling=true" | xargs docker rmi -f
+        
+        resources/templates/jira-comment.txt
+            Deployment completed successfully.
+            Build: ${BUILD_NUMBER}
+            Commit: ${GIT_COMMIT}
+            Branch: ${GIT_BRANCH}
+            Environment: ${ENV} 
+        
+        Using of it:
+            // vars/runCleanup.groovy
+            def call() {
+                def script = libraryResource('scripts/cleanup.sh')              //using of resource
+                sh script
+            }
+
+            // vars/getJiraComment.groovy
+            def call(Map config) {
+                def template = libraryResource('templates/jira-comment.txt')    //using of txt file
+                return template
+                    .replace('${BUILD_NUMBER}', config.buildNumber)             //using of Map functionality, see above
+                    .replace('${GIT_COMMIT}', config.commit)                    //using of Map functionality, see above
+            }
+
+//******************** __PATTERNS__ *******************
+1) Pipeline-as-a-Library - all pipeline sits inside the single file
+2) Builder / Fluent API
+3) 
+
+
+Examples of patterns:
+1)  //Pipeline-as-a-Library, File = vars/standardJavaPipeline.groovy
+    def call(Map config) {
+        pipeline {
+            agent { label config.agent ?: 'java-agent' }
+            
+            options {
+                timeout(time: config.timeout ?: 30, unit: 'MINUTES')
+                disableConcurrentBuilds()
+                buildDiscarder(logRotator(numToKeepStr: '10'))
+            }
+            
+            stages {
+                stage('Checkout')  { steps { checkout scm } }
+                stage('Test')      { steps { sh config.testCmd ?: './gradlew test' } }
+                stage('Build')     { steps { sh config.buildCmd ?: './gradlew build' } }
+                stage('Docker')    {
+                    when { branch 'main' }
+                    steps { buildAndPush image: config.image, tag: env.BUILD_NUMBER }
+                }
+            }
+            
+            post {
+                always  { junit 'build/test-results/**/*.xml' }
+                failure { slackNotify channel: config.slackChannel, status: 'FAILED' }
+            }
+        }
+    }
+
+    And jenkins file of the project now is like:
+        @Library('company-lib@v3') _
+        standardJavaPipeline(
+            image: 'myregistry/myapp',
+            slackChannel: '#team-backend'
+        )
+
+2) Builder / Fluent API 
+    //According to the Builder startegy, it should return type of class for methods to allow chain of calls
+    //File = src/org/company/PipelineBuilder.groovy
+        package org.company
+        class PipelineBuilder implements Serializable {
+            private def script
+            private Map config = [
+                dockerEnabled: false,
+                sonarEnabled:  false,
+                environments:  []
+            ]
+
+            PipelineBuilder(script) { this.script = script }
+
+            PipelineBuilder withDocker(String registry) {
+                config.dockerEnabled = true
+                config.dockerRegistry = registry
+                return this                         //need for chain of calls
+            }
+
+            PipelineBuilder withSonar() {
+                config.sonarEnabled = true
+                return this                         //need for chain of calls
+            }
+
+            PipelineBuilder deployTo(String... envs) {
+                config.environments = envs.toList()
+                return this                         //need for chain of calls
+            }
+
+            void build() {
+                script.node {
+                    if (config.sonarEnabled) { /* sonar scan */ }
+                    if (config.dockerEnabled) { /* docker build */ }
+                    config.environments.each { env -> /* deploy */ }
+                }
+            }
+        }
+
+    Using in Jenkins:
+        // vars/pipeline.groovy
+        import org.company.PipelineBuilder
+        def call() { return new PipelineBuilder(this) }
+
+        // Jenkinsfile:
+        pipeline()
+            .withDocker('my.registry.io')
+            .withSonar()
+            .deployTo('staging', 'prod')
+            .build()
+
+
+//******************** __ LIB CONNECTION/LOADING __ ****************
+1) With Annotation(@Library) = static loading
+    - Lib conected to the Jenkins file on Jenkins file start
+    - Could be called only on the top of the file
+    - Example:  @Library('my-lib@main') _                   //lib with branch version
+                @Library('my-lib@v1.2.0') _                 //lib with tag version
+                @Library(['my-lib', 'another-lib']) _       //2 libs imported at once
+
+2) With step (library) = dynamically
+    - Lib conected to the Jenkins file at the moment it reach the line with this step
+    - Could be called in any place in the file
+    - Example:
+        stage('Deploy') {
+            steps {
+                script {
+                    // 1) loading library dynamically
+                    def infraLib = library(
+                        identifier: "infra-lib@${params.INFRA_VERSION}",
+                        retriever: modernSCM([$class: 'GitSCMSource', remote: '...'])
+                    )
+
+                    // 2) Get class from library and create obj using context 
+                    // infraLib.org.company.Deployer — path to the class
+                    def deployer = infraLib.org.company.Deployer.new(this)
+
+                    // 3) Use it
+                    deployer.deploy(env.APP_NAME)
+                }
+            }
+        }
+
+//******************** __Jenkins Pipeline Unit__ ******************
+Commonly missed step in development of libs - tests. 
+Jenkins Pipeline Unit = lib that will allow to test your Groovy-code of shared lib without starting Jenkins
+
+Project structure:
+    vars/
+    └── deploy.groovy
+    test/
+    └── DeployTest.groovy
+    build.gradle
+
+Code for testing:
+    // vars/deploy.groovy
+    def call(String env) {
+        if (!env) {
+            error "env parameter is required"
+        }
+        sh "kubectl apply -f k8s/${env}/"
+        echo "Deployed to ${env}"
+    }
+
+Your test:
+    // test/DeployTest.groovy
+    import com.lesfurets.jenkins.unit.BasePipelineTest
+    import org.junit.Before
+    import org.junit.Test
+
+    class DeployTest extends BasePipelineTest {
+
+        @Before
+        void setUp() {
+            super.setUp()
+        }
+
+        @Test
+        void 'deploy call kubectl with proper env'() {
+            // Load vars/deploy.groovy
+            def script = loadScript('vars/deploy.groovy')
+
+            // Simulate call in Jenkinsfile
+            script.call('staging')
+
+            assertJobStatusSuccess()            
+            def shCalls = helper.callStack.findAll { it.methodName == 'sh' }
+            assert shCalls.any { it.args[0].contains('k8s/staging/') }
+        }
+
+        @Test
+        void 'deploy fail if there is no env'() {
+            def script = loadScript('vars/deploy.groovy')
+            try {
+                script.call('')
+                assert false, "should fail"
+            } catch(e) {
+                assert e.message.contains('env parameter is required')
+            }
+        }
+    }
+
+build.gradle:
+    dependencies {
+        testImplementation 'com.lesfurets:jenkins-pipeline-unit:1.21'
+        testImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
+    }
+
+Start command:
+    ./gradlew test
+
+//******************** __MAIN__ ******************
+1) Agents purpose - spread the load between the agents (it could be a servers/hosts/whatever except the Jenkins Master)
+2) Heavy tasks - could be any task that will take a lot of time on Jenkins Master
+
+Connection types:
+    - SSH. Connection initiated by Master. On Master need to create key and IP of the agent.
+    - Inbound (aka JNLP). Connection initiated by Agent. Agent have to start script with Master IP
+
+Name VS Label
+    Name = unique ID in Master DB. Used for 
+        - check agent logs
+        - restart agent 
+        - delete agent
+        - build pathes (workspaces)
+        - provided proper secret key (for inbound agents)
+        Using of name in Jenkinsfile instead of label is possible, but it's a bad practice. 
+    Label = non-unique marker. Used for 
+        - logical selection of agent possibility to execute task
+
+//******************** __AGENT CONFIGURATION__ ****************
+
+Agent Type:
+    - Permanent:
+        You create record on Master in config file with all agent attributes and it's expected to be accessible.
+        If it's not in current time, the record still present and the history is accessible. 
+        - Pos: you can download heavy images, cache some additional data and it will be kept between jobs.
+        - Cons: 
+            If the agent fail master can't restart it. You need to fix it manually. 
+            The issues/garbage from prev job can inpact on your current one.
+    - Cloud Agents. 
+        Life circle: Master create -> Agent execute tasks -> Master delete it.
+
+Agent Executors:
+    - Always set 0 on Master, cause Master is manager and not a worker
+    - Always set 1 on Cloud workers. 1 task per container. Also for DinD strategy.
+    - Default is 2 jobs per worker. If you have a good hardware configuration - set 4.
+
+Agent Remotedir (almost Workdir)
+    Folder used to keep the code of: 
+        - auxiluary libs
+        - tools that you want to be installed automatically
+        - your project
+    You have to fill this as:
+        - ususally you are nort working as root, so your user have rights to do things in special directory
+        - due to caching the files kept inside and you will not need to download the project again from 0.
+        - isolation from using basic directories of OS system
+    Remotedir usually is /home/jenkins/agent = logs/cache/pre-installed tools
+    Workdir usually is /home/jenkins/agent/workspace = code of the task
+
+Agent labels
+    List of labels splitted by space, that will be associated with this specific agent
+
+Agent Usage
+    - "Use this node as much as possible" = you can use this agent whenever you whant for ANY task
+    - "Only build jobs with label expressions matching this node" = only jobs having labels from "Agent Labels" will be accepted for execution on this agent.
+
+//******************** __INBOUND AGENT CONNECTION__ ****************
+
+Part-1 = docker-compose.yml
+
+    services:
+        slave-app:
+            image: pr2-slave-img
+            privileged: true
+            environment:
+            - JENKINS_URL=http://jenkins-master:8080              //URL of Jenkins master
+            - JENKINS_AGENT_NAME=slave-app                        //name of the agent 
+            - JENKINS_SECRET=<secret-token>                       //secret generated on Master while Agent creation
+            - JENKINS_AGENT_WORKDIR=/home/jenkins/workspace       //this is the folder on agent
+            volumes:
+            - /var/lib/docker/slave-app:/var/lib/docker           //volumens on HOST and inside Jenkins container
+
+Part-2 = docker-entrypoint.sh
+
+    #!/bin/sh
+    set -e
+
+    sudo dockerd \
+        --host=unix:///var/run/docker.sock \
+        --storage-driver=vfs \
+        &
+
+    echo "Waiting for Docker daemon..."
+    timeout 30 sh -c 'until docker info > /dev/null 2>&1; do sleep 1; done'
+    echo "Docker daemon is up."
+
+    exec /usr/local/bin/jenkins-agent "$@"

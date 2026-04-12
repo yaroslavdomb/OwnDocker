@@ -31,15 +31,17 @@ DONE| DAY | TOPIC                | WHAT TO BE LEARNED
     | 27  | Dynamic Inventory    | scripts, plugins, AWS/Docker inventory
     | 28  | Optimization         | async, poll, serial, forks
     | 29  | Practice             | deploy Docker container via Ansible
-            ===== JENKINS ====== 
-    | 30  | Pipeline Syntax      | stages, steps, agent, environment
-    | 31  | Credentials          | secrets storage, withCredentials
-    | 32  | when / post          | conditions, always/failure/success
-    | 33  | Parallel             | parallel stages
-    | 34  | Parameters           | input, parameterized builds
-    | 35  | GitHub Integration   | webhook, triggers, SCM polling
+            ===== JENKINS ======               
+ 1  | 30-1| Jenkins init         | Installation in docker, all types of jobs explanation, cron syntax
+ 1  | 30-2| Pipeline Syntax      | stages, steps, agent, environment
+ 1  | 31  | Credentials          | secrets storage, withCredentials
+ 1  | 32  | when / post          | conditions of execution, allOf/anyOf/not, patterns
+ 0.5| 33  | Parallel             | parallel stages, failFast
+ 0.5| 34  | Parameters           | input, parameterized builds, submitters, timeout
+ 0.5| 35  | GitHub Integration   | webhook, triggers, SCM polling, GitHub webhook config 
     | 36  | Practice             | pipeline with parameters and email notification
-    | 37  | Shared Libraries     | structure, vars, src, resources
+ 0.5| 37-1| Shared Libraries     | structure, vars/src/resources, library vs @Library, Jenkins Pipeline Unit
+ 0.5| 37-2| Nodes & Master-Slave | SSH/JNLP (Inbound)/Cloud Agents, configuration of labels
     | 38  | Docker in Jenkins    | agent in container, docker.build, docker.push
     | 39  | Artifacts            | archiveArtifacts, stash/unstash
     | 40  | Multibranch Pipeline | branch auto-discovery, PR builds
